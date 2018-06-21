@@ -46,7 +46,6 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument('-i', '--tab', help = 'tab delim [ chr pos base window strain ]', required = True)
     args = p.parse_args()
-
     d = catSNP(args.tab)
     printout(d)
 
