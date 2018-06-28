@@ -1,0 +1,110 @@
+#!/usr/bin/env python
+
+import sys, argparse, operator
+
+
+class gRNA:
+    guides = list()
+    def __init__(self):
+        self.chrom = None
+        self.start = None
+        self.end = None
+        self.seq = None
+        self.direction = None
+
+        self.bases = list()
+        gRNA.guides.append(self)
+    def add_bed(self, bed_entry):
+        self.chrom, self.start, self.end, self.window, self.seq, self.direction = bed_entry
+    def assign(self, baseConsensus):
+        """assign base to class if within region"""
+        chrom, pos, base = baseConsensus
+        if chrom == self.chrom:
+            if (pos >= self.start) and (pos <= self.end):
+                self.bases.append(base)
+
+def pileReader(pile, cig):
+    """read through pile and generate histogram"""
+    skips = ['#', '^', '$', '*']
+    pm = ['+', '-']
+    num = [str(s) for s in range(0,9)]
+    bases = ['A', 'C', 'T', 'G']
+
+    hist = dict()
+
+    p = iter(pile.upper())
+    while True:
+        try:
+            b = next(p)
+            # skip placeholders and meta info
+            if b in skips:
+                continue
+            # check for indel
+            if b in pm:
+                check = next(p)
+                if check in range(0,9):
+                    print pile
+            if b not in bases:
+                continue
+            if b not in hist:
+                hist[b] = 0
+            hist[b] += 1
+        except StopIteration:
+            return hist
+def maxHist(hist):
+    """return the key with highest value"""
+    try:
+        return max(hist.iteritems(), key = operator.itemgetter(1))[0]
+    except ValueError:
+        return 'na'
+def parse_mpileup():
+    """parse stdin, capitilize, strip newlines, and split by tab"""
+    for line in sys.stdin:
+        yield line.strip('\n').split('\t')
+def base_consensus():
+    for l in parse_mpileup():
+        chrom, pos, ref, depth, pile, cig = l
+        h = pileReader(pile, cig)
+        yield [chrom, pos, maxHist(h)]
+
+
+def parse_bed(bed):
+    with open(bed) as f:
+        while True:
+            try:
+                yield next(f).strip('\n').split('\t')
+            except StopIteration:
+                break
+def makeBed(bed):
+    """add bed information to classes"""
+    for b in parse_bed(bed):
+        gRNA().add_bed(b)
+def build_region_consensus(bed):
+    pass
+
+
+def main():
+    p = argparse.ArgumentParser()
+    p.add_argument("-b", '--bed', help = 'bed file of regions to generate consensus base at each position')
+    p.add_argument("-s", '--snp', help = "bed file of snp positions to generate consensus")
+    args = p.parse_args()
+
+    # check if stdin is passed
+    if sys.stdin.isatty():
+        sys.exit("ERROR: requires mpileup stdin")
+
+    if args.bed:
+        makeBed(args.bed)
+
+    for b in base_consensus():
+        if not args.bed:
+            print '\t'.join(b)
+        else:
+            [g.assign(b) for g in gRNA.guides]
+    for g in gRNA.guides:
+        print g.window, g.direction, ''.join(g.bases)
+
+
+
+if __name__ == '__main__':
+    main()
