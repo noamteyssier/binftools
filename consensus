@@ -14,12 +14,12 @@ class Region:
                 sys.exit("ERROR : bed format must have at least 4 values (chr, left, right, label) and up to 5")
         self.entry = entry
         self.bases = []
-    def assignPos(self, line):
+    def assignPos(self, line, threshold):
         """assign a base to class if it is within chromosomal region"""
-        ch,pos,ref,dep,pile,cig = line
+        ch,pos,ref,depth,pile,cig = line
         if self.chrom == ch:
             if (pos >= self.left) and (pos <= self.right):
-                self.bases.append(parse_pile(pile))
+                self.bases.append(parse_pile(pile, depth, threshold))
     def printConsensus(self, label):
         """print formatted output"""
         items = self.entry + [''.join(self.bases)]
@@ -43,11 +43,14 @@ def parse_stdin():
     """generate stripped tab delim lines"""
     for line in sys.stdin:
         yield line.strip('\n').split('\t')
-def parse_pile(pile):
+def parse_pile(pile, depth, threshold):
     """turn pile into uppercase and return maximum"""
     pile = pile.upper()
     lex = ['A', 'C', 'G', 'T']
-    return max_hist(pile, lex)
+    if int(depth) >= int(threshold):
+        return max_hist(pile, lex)
+    else:
+        return 'x'
 def parse_bed(bed):
     with open(bed) as f:
         while True:
@@ -75,6 +78,7 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument('-l', '--label', help='add label column to output')
     p.add_argument('-b', '--bedArrange', help='BED File to arrange bases')
+    p.add_argument('-t', '--threshold', default = 100, help='minumum depth to generate consensus')
     args = p.parse_args()
 
     if sys.stdin.isatty(): # exit if no stdin
@@ -82,12 +86,12 @@ def main():
 
     if not args.bedArrange:
         for line in parse_stdin():
-            ch,pos,ref,dep,pile,cig = line
-            writeout(ch, pos, parse_pile(pile), args.label)
+            ch,pos,ref,depth,pile,cig = line
+            writeout(ch, pos, parse_pile(pile, depth, args.threshold), args.label)
     else:
         regions = makeBED(args.bedArrange)
         for line in parse_stdin():
-            [r.assignPos(line) for r in regions]
+            [r.assignPos(line, args.threshold) for r in regions]
         [r.printConsensus(args.label) for r in regions]
 
 
