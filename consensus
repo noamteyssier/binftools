@@ -79,8 +79,6 @@ def makeBed(bed):
     """add bed information to classes"""
     for b in parse_bed(bed):
         gRNA().add_bed(b)
-def build_region_consensus(bed):
-    pass
 
 
 def main():
@@ -101,6 +99,7 @@ def main():
             print '\t'.join(b)
         else:
             [g.assign(b) for g in gRNA.guides]
+
     for g in gRNA.guides:
         print g.window, g.direction, ''.join(g.bases)
 
