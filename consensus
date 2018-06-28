@@ -100,8 +100,9 @@ def main():
         else:
             [g.assign(b) for g in gRNA.guides]
 
-    for g in gRNA.guides:
-        print g.window, g.direction, ''.join(g.bases)
+    if args.bed:
+        for g in gRNA.guides:
+            print g.window, g.direction, ''.join(g.bases)
 
 
 
