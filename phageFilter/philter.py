@@ -5,6 +5,7 @@ import gzip
 import re
 import subprocess
 import sys
+import time
 
 def write_fastq(fq, data):
     """write lines of fastq to file"""
@@ -21,6 +22,8 @@ def main():
     p.add_argument('-o', '--output_base', help='base name of output (philtered_$base)', required=True)
     p.add_argument('-z', '--gzip', action='store_true', help='compress file after completion', required=False)
     args = p.parse_args()
+
+    start_time = time.time()
 
     f_pattern = 'CGAATTCAGTGGTTGGTGCTGTAGGAGCA'
     r_pattern = 'AAGCTTGAGGCCATGGCATATGC'
@@ -76,9 +79,13 @@ def main():
             shell=True
         ).wait()
 
+
+    print('-------')
     print('Pairs Kept   : {0}'.format(pairs_kept))
     print('Total Pairs  : {0}'.format(pairs_total))
     print('Percent Kept : {0}'.format(pairs_kept/pairs_total))
+    print('Time Elapsed : {0}'.format(time.time() - start_time))
+    print('-------\n')
 
 
 if __name__ == '__main__':
