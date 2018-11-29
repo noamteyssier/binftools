@@ -6,15 +6,28 @@ import re
 import subprocess
 import sys
 import time
+import shutil
+import os
 
 def write_fastq(fq, data):
     """write lines of fastq to file"""
     [fq.write(line.decode('ascii')) for line in data]
+
+
 def cut_fastq(fq, pattern):
     """trim length of pattern from read"""
-    fq[1] = fq[1].decode('ascii')[len(pattern):].encode()
-    fq[3] = fq[3].decode('ascii')[len(pattern):].encode()
+    fq[1] = fq[1].decode('ascii')[len(pattern):].encode()   # sequence trim
+    fq[3] = fq[3].decode('ascii')[len(pattern):].encode()   # quality trim
     return fq
+
+def gzip_file(fn):
+    """gzip an existing file"""
+    with open(fn, 'rb') as f_in:
+        with gzip.open(fn+'.gz', 'wb+') as f_out:
+            shutil.copyfileobj(f_in, f_out)
+    os.remove(fn)
+
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument('-1', '--forward_fq', help='filename of forward fastq', required=True)
@@ -25,23 +38,31 @@ def main():
 
     start_time = time.time()
 
+    # assign output names
+    f_ofn = 'philtered_{0}_R1.fq'.format(args.output_base)
+    r_ofn = 'philtered_{0}_R2.fq'.format(args.output_base)
+
+    # patterns to trim
     f_pattern = 'CGAATTCAGTGGTTGGTGCTGTAGGAGCA'
     r_pattern = 'AAGCTTGAGGCCATGGCATATGC'
 
+    # input files
     forward_fq = gzip.open(args.forward_fq, 'r')
     reverse_fq = gzip.open(args.reverse_fq, 'r')
 
+    # output files
+    f_out = open(f_ofn, 'w+')
+    r_out = open(r_ofn, 'w+')
+
+    # regex of patterns
     reg_forward = re.compile('^' + f_pattern)
     reg_reverse = re.compile('^' + r_pattern)
 
-
-    f_out = open('philtered_{0}_R1.fq'.format(args.output_base), 'w+')
-    r_out = open('philtered_{0}_R2.fq'.format(args.output_base), 'w+')
-
-
+    # output totals
     pairs_kept = 0
     pairs_total = 0
 
+    # loop over all reads
     while True:
         pairs_total += 1
         try:
@@ -56,6 +77,11 @@ def main():
                 write_fastq(r_out, r)
                 pairs_kept += 1
         except StopIteration:
+            f_out.close()
+            r_out.close()
+            if args.gzip:
+                gzip_file(f_ofn)
+                gzip_file(r_ofn)
             break
         except OSError:
             subprocess.Popen(
@@ -68,16 +94,7 @@ def main():
             )
             sys.exit('ERROR : input files are not gzip')
 
-    # zip both files
-    if args.gzip:
-        subprocess.Popen(
-            "gzip philtered_{0}_R1.fq".format(args.output_base),
-            shell=True
-        ).wait()
-        subprocess.Popen(
-            "gzip philtered_{0}_R2.fq".format(args.output_base),
-            shell=True
-        ).wait()
+    sys.exit()
 
 
     print('-------')
