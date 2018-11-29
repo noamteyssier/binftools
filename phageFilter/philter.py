@@ -9,6 +9,10 @@ import time
 import shutil
 import os
 
+
+def eprint(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)
+
 def write_fastq(fq, data):
     """write lines of fastq to file"""
     [fq.write(line.decode('ascii')) for line in data]
@@ -26,6 +30,17 @@ def gzip_file(fn):
         with gzip.open(fn+'.gz', 'wb+') as f_out:
             shutil.copyfileobj(f_in, f_out)
     os.remove(fn)
+
+def status_update(pairs_kept, pairs_total, start_time):
+    eprint('{0:10.4f}s:{1:10.4f}% kept of {2} pairs processed'.format(time.time() - start_time, pairs_kept/pairs_total, pairs_total))
+
+def final_printout(pairs_kept, pairs_total, start_time):
+    eprint('-------')
+    eprint('Pairs Kept   : {0}'.format(pairs_kept))
+    eprint('Total Pairs  : {0}'.format(pairs_total))
+    eprint('Percent Kept : {0}'.format(pairs_kept/pairs_total))
+    eprint('Time Elapsed : {0}'.format(time.time() - start_time))
+    eprint('-------\n')
 
 
 def main():
@@ -69,6 +84,9 @@ def main():
             f = [next(forward_fq) for _ in range(4)]
             r = [next(reverse_fq) for _ in range(4)]
 
+            if pairs_total % 100000 == 0:
+                status_update(pairs_kept, pairs_total, start_time)
+
             # only proceed if both pairs match regex
             if reg_forward.match(f[1].decode('ascii')) and reg_reverse.match(r[1].decode('ascii')):
                 f = cut_fastq(f, f_pattern)
@@ -76,6 +94,7 @@ def main():
                 write_fastq(f_out, f)
                 write_fastq(r_out, r)
                 pairs_kept += 1
+
         except StopIteration:
             f_out.close()
             r_out.close()
@@ -94,15 +113,7 @@ def main():
             )
             sys.exit('ERROR : input files are not gzip')
 
-    sys.exit()
-
-
-    print('-------')
-    print('Pairs Kept   : {0}'.format(pairs_kept))
-    print('Total Pairs  : {0}'.format(pairs_total))
-    print('Percent Kept : {0}'.format(pairs_kept/pairs_total))
-    print('Time Elapsed : {0}'.format(time.time() - start_time))
-    print('-------\n')
+    final_printout(pairs_kept, pairs_total, start_time)
 
 
 if __name__ == '__main__':
