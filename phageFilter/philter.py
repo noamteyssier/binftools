@@ -32,7 +32,16 @@ def gzip_file(fn):
     os.remove(fn)
 
 def status_update(pairs_kept, pairs_total, start_time):
-    eprint('{0:10.4f}s:{1:10.4f}% kept of {2} pairs processed'.format(time.time() - start_time, pairs_kept/pairs_total, pairs_total))
+    c_elapsed = time.time() - start_time
+    eprint(
+        '{0:10.4f}s:{1:10.4f}% kept of {2} pairs processed at a rate of {3}MB/s'.format(
+            c_elapsed,
+            pairs_kept/pairs_total,
+            pairs_total,
+            pairs_total / 1000000 / c_elapsed
+
+        )
+    )
 
 def final_printout(pairs_kept, pairs_total, start_time):
     eprint('-------')
