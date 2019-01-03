@@ -67,7 +67,7 @@ def main():
     args = get_args()
 
     if args.random_seed:
-        seed(int(random_seed))
+        seed(int(args.random_seed))
 
     # generate motifs
     generated_motifs = [
