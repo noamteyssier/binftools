@@ -105,22 +105,11 @@ def main():
                 pairs_kept += 1
 
         except StopIteration:
-            f_out.close()
-            r_out.close()
+            [i.close() for i in [f_ofn, r_ofn]]
             if args.gzip:
-                gzip_file(f_ofn)
-                gzip_file(r_ofn)
+                [gzip_file(i) for i in [f_ofn, r_ofn]]
             break
-        except OSError:
-            subprocess.Popen(
-                "rm philtered_{0}_R1.fq".format(args.output_base),
-                shell=True
-            )
-            subprocess.Popen(
-                "rm philtered_{0}_R2.fq".format(args.output_base),
-                shell=True
-            )
-            sys.exit('ERROR : input files are not gzip')
+
 
     final_printout(pairs_kept, pairs_total, start_time)
 
