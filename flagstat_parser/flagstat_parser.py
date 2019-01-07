@@ -1,5 +1,16 @@
 #!/usr/bin/env python3
 
+"""
+
+Simple CLI tool to handle output of flagstat
+
+input : flagstat output into stdin
+output : tab delim [total, mapped, paired, optional_label]
+
+
+"""
+
+
 import sys
 import argparse
 
