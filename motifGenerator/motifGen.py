@@ -4,7 +4,7 @@ from random import choice, seed, uniform, randint
 from argparse import ArgumentParser
 
 
-def generate_sequences(alphabet, motifs, num_seqs, len_seqs, freq_motif):
+def generate_sequences(alphabet, motifs, num_seqs, len_seqs, freq_motif, error_rate):
     """generate sequences"""
     for i in range(num_seqs):
 
@@ -12,21 +12,32 @@ def generate_sequences(alphabet, motifs, num_seqs, len_seqs, freq_motif):
 
         # motif in sequence
         if uniform(0,1) <= freq_motif:
-            motif = choice(motifs)
-            len_motif = len(motif)
+            base_motif = choice(motifs)
+            err_motif = motif_error(alphabet, base_motif, error_rate)
+            len_motif = len(base_motif)
 
 
             pos_motif = randint(0, len_seqs - len_motif)
             seq_left = ''.join([choice(alphabet) for _ in range(pos_motif)])
             seq_right = ''.join([choice(alphabet) for _ in range(len_seqs - pos_motif - len_motif)])
 
-            seq = seq_left + motif + seq_right
+            seq = seq_left + err_motif + seq_right
 
         # motif not in sequence
         else:
             seq = ''.join([choice(alphabet) for _ in range(len_seqs)])
 
-        fasta_print(seq, motif, i)
+        fasta_print(seq, base_motif, i)
+def motif_error(alphabet, motif, error_rate):
+    """introduce error rate on motif"""
+    new_motif = [0] * len(motif)
+    for i in range(len(motif)):
+        if uniform(0,1) <= error_rate:
+            new_motif[i] = choice(alphabet)
+        else:
+            new_motif[i] = motif[i]
+    return ''.join(new_motif)
+
 def generate_motif(alphabet, width):
     """generate a motif of a given width"""
     return ''.join([choice(alphabet) for _ in range(width)])
@@ -43,6 +54,7 @@ def get_args():
     p.add_argument('-m', '--num_motifs', help='number of motifs to include', default = 1e2)
     p.add_argument('-l', '--len_seqs', help='length of sequences to generate', default = 1.5e2)
     p.add_argument('-f', '--freq_motif', help='frequency of finding a motif in a sequence (between 0 and 1)', default = 0.5)
+    p.add_argument('-e', '--error_rate', help='base level error rate of motifs', default = 5e-2)
     p.add_argument('-a', '--alphabet', help='[dna][rna][protein]', default = 'dna')
     p.add_argument('-w', '--motif_width', help='width of motif to add', default = 7)
     p.add_argument('-s', '--random_seed', help='optional seed for random')
@@ -82,7 +94,8 @@ def main():
         generated_motifs,
         num_seqs = int(args.num_seqs),
         len_seqs = int(args.len_seqs),
-        freq_motif = float(args.freq_motif)
+        freq_motif = float(args.freq_motif),
+        error_rate = float(args.error_rate)
     )
 
 
