@@ -8,8 +8,6 @@ def generate_sequences(alphabet, motifs, num_seqs, len_seqs, freq_motif, error_r
     """generate sequences"""
     for i in range(num_seqs):
 
-        motif = None
-
         # motif in sequence
         if uniform(0,1) <= freq_motif:
             base_motif = choice(motifs)
@@ -25,6 +23,7 @@ def generate_sequences(alphabet, motifs, num_seqs, len_seqs, freq_motif, error_r
 
         # motif not in sequence
         else:
+            base_motif = None
             seq = ''.join([choice(alphabet) for _ in range(len_seqs)])
 
         fasta_print(seq, base_motif, i)
