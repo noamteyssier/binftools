@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 
 import sys, os, argparse, gzip, re
+from datetime import datetime
 import multiprocessing as mp
 import subprocess as sp
+import triegex
 
 
 class TrimPrimers:
@@ -15,6 +17,11 @@ class TrimPrimers:
         self.gen_p2 = None
         self.regex_p1 = None
         self.regex_p2 = None
+        self.trim_1 = None
+        self.trim_2 = None
+
+        self.seq_memory = dict()
+        self.trim_memory = dict()
     def seq_gen(self, fname, type='fastq'):
         """sequence generator for fastq and fasta"""
         f_gen = self.open_file(fname)
@@ -43,22 +50,25 @@ class TrimPrimers:
     def construct_primer_regex(self):
         """create regex expression for primer sets"""
         self.gen_p1, self.gen_p2 = [self.seq_gen(i, type='fasta') for i in [self.primer1, self.primer2]]
-        self.regex_p1, self.regex_p2 = ['|'.join(['^' + seq for (header, seq) in g])
-            for g in [self.gen_p1, self.gen_p2]]
+        self.regex_p1 = triegex.Triegex(list('^' + seq for (header, seq) in self.gen_p1)).to_regex()
+        self.regex_p2 = triegex.Triegex(list('^' + seq for (header, seq) in self.gen_p2)).to_regex()
+    def apply_regex(self, regex, sequence):
+        """apply regex on sequence if not done before"""
+        # only apply regex if not done before
+        if sequence not in self.seq_memory:
+            match = re.match(regex, sequence)
+            self.seq_memory[sequence] = match
+
+        return self.seq_memory[sequence]
     def apply_trim(self, record, match):
-        """apply trim on fastq sequence and quality scores"""
-        start, end = match.span()
-        return [record[0], record[1][end:], record[2][end:]]
-    def write_fastq(self, fname, q):
-        f = self.open_file(fname.replace('.gz',''), how='write')
-        while True:
-            record = q.get()
-            if record != 'exit':
-                f.write(
-                    "{0}\n{1}\n+\n{2}\n".format(record[0], record[1], record[2])
-                )
-            else:
-                break
+        """apply trim on fastq sequence and quality scores if not done before"""
+        if record[1] not in self.trim_memory:
+            start, end = match.span()
+            self.trim_memory[record[1]] = [record[0], record[1][end:], record[2][end:]]
+        return self.trim_memory[record[1]]
+    def write_fastq(self, f, record):
+        """write record in fastq format"""
+        f.write("{0}\n{1}\n+\n{2}\n".format(record[0], record[1], record[2]))
     def Trim(self):
         """
         main method of class
@@ -69,41 +79,27 @@ class TrimPrimers:
             - generator + regex
             - write
         """
-        # mp.set_start_method('spawn')
-        q1 = mp.Queue()
-        q2 = mp.Queue()
-
-        trim1_writer = mp.Process(target=self.write_fastq, args=(self.trim1, q1))
-        trim2_writer = mp.Process(target=self.write_fastq, args=(self.trim2, q2))
-        trim1_writer.start()
-        trim2_writer.start()
 
         self.gen_r1, self.gen_r2 = [self.seq_gen(i) for i in [self.read1, self.read2]]
         self.construct_primer_regex()
+
+        # standard
+        trim_f1 = self.open_file(self.trim1, how='write')#.replace('.gz', ''), how='write')
+        trim_f2 = self.open_file(self.trim2, how='write')#.replace('.gz', ''), how='write')
+
         while True:
             try:
                 record1, record2 = [next(g) for g in [self.gen_r1, self.gen_r2]]
-                match1, match2 = [re.match(primers, seq) for (primers, seq) in [(self.regex_p1, record1[1]), (self.regex_p2, record2[1])]]
+                match1 = self.apply_regex(self.regex_p1, record1[1])
+                match2 = self.apply_regex(self.regex_p2, record2[1])
 
                 if match1 and match2:
                     t1, t2 = [self.apply_trim(r, m) for (r,m) in [(record1, match1), (record2, match2)]]
-                    q1.put(t1)
-                    q2.put(t2)
+                    self.write_fastq(trim_f1, t1)
+                    self.write_fastq(trim_f2, t2)
 
             except StopIteration:
-                q1.put('exit')
-                q2.put('exit')
-                trim1_writer.join()
-                trim2_writer.join()
-                if self.trim1[-3:] == '.gz':
-                    sp.Popen(
-                        "gzip -f {0} {1}".format(self.trim1.replace('.gz', ''), self.trim2.replace('.gz', '')),
-                        shell=True
-                        )
                 break
-
-
-
 
 def get_args():
     p = argparse.ArgumentParser()
