@@ -36,7 +36,7 @@ class TrimPrimers:
         elif type=='fasta':
             while True:
                 try:
-                    header, seq = [next(f_gen).strip() for _ in range(2)]
+                    header, seq = [next(f_gen).strip('\n').strip(' ') for _ in range(2)]
                     yield [header, seq]
                 except StopIteration:
                     break
@@ -47,11 +47,18 @@ class TrimPrimers:
             return gzip.open(fname, open_method + 't')
         else:
             return open(fname, open_method)
+    def regex_trie(self, primer_gen):
+        """prepare regex trie with primer"""
+        t = triegex.Triegex()
+        [t.add('^' + seq) for (header, seq) in primer_gen]
+
+        # remove line ending created from Triegex
+        return t.to_regex().replace("\\b", '')
     def construct_primer_regex(self):
         """create regex expression for primer sets"""
         self.gen_p1, self.gen_p2 = [self.seq_gen(i, type='fasta') for i in [self.primer1, self.primer2]]
-        self.regex_p1 = triegex.Triegex(list('^' + seq for (header, seq) in self.gen_p1)).to_regex()
-        self.regex_p2 = triegex.Triegex(list('^' + seq for (header, seq) in self.gen_p2)).to_regex()
+        self.regex_p1 = self.regex_trie(self.gen_p1)
+        self.regex_p2 = self.regex_trie(self.gen_p2)
     def apply_regex(self, regex, sequence):
         """apply regex on sequence if not done before"""
         # only apply regex if not done before
@@ -92,6 +99,7 @@ class TrimPrimers:
                 record1, record2 = [next(g) for g in [self.gen_r1, self.gen_r2]]
                 match1 = self.apply_regex(self.regex_p1, record1[1])
                 match2 = self.apply_regex(self.regex_p2, record2[1])
+
 
                 if match1 and match2:
                     t1, t2 = [self.apply_trim(r, m) for (r,m) in [(record1, match1), (record2, match2)]]
