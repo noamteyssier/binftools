@@ -100,6 +100,9 @@ class RegionExtractor:
         """
         Select header names that are present across all interval positions
         """
+        if len(tuples) == 0:
+            return [np.array([])] * 2
+
         headers = np.hstack([t[0] for t in tuples])
         unique_headers, base_coverage = np.unique(headers, return_counts = True)
         passing_headers = unique_headers[np.where(base_coverage == len(tuples))[0]]
