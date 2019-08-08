@@ -15,7 +15,11 @@ class RegionExtractor:
         self.output_dir = output_dir
         self.overwrite = overwrite
 
-        self.interval_counts = dict()
+        self.intervalStats = {
+            'interval_name' : [],
+            'n_partial' : [],
+            'n_total' : []
+        }
 
         self._load_bam()
         self._load_bed()
@@ -85,6 +89,13 @@ class RegionExtractor:
             np.array(column.get_query_sequences()),
             np.array(column.get_query_qualities())
             ) for column in self._call_pileup(interval)]
+    def UpdateStatistics(self, interval_name, total_headers, passing_headers):
+        """
+        update dictionary entry for interval name
+        """
+        self.intervalStats['interval_name'].append(interval_name)
+        self.intervalStats['n_partial'].append(total_headers.size)
+        self.intervalStats['n_total'].append(passing_headers.size)
     def SelectFullSpanning(self, tuples):
         """
         Select header names that are present across all interval positions
@@ -92,7 +103,7 @@ class RegionExtractor:
         headers = np.hstack([t[0] for t in tuples])
         unique_headers, base_coverage = np.unique(headers, return_counts = True)
         passing_headers = unique_headers[np.where(base_coverage == len(tuples))[0]]
-        return passing_headers
+        return unique_headers, passing_headers
     def BuildSequences(self, tuples, passing_headers):
         """
         - Iterate across columns
@@ -128,22 +139,16 @@ class RegionExtractor:
         Extract interval from bam file
         """
         interval_name, interval_ofn = self.getIntervalOFN(interval)
-
         tuples = self.GetIntervalInfo(interval)
-        passing_headers = self.SelectFullSpanning(tuples)
-
-        # add number of fully spanning reads to interval dictionary
-        self.interval_counts[interval_name] = passing_headers.size
+        total_headers, passing_headers = self.SelectFullSpanning(tuples)
+        self.UpdateStatistics(interval_name, total_headers, passing_headers)
 
         # only write file if reads found
         if passing_headers.size > 0:
             read_dictionary = self.BuildSequences(tuples, passing_headers)
             self.WriteSequences(read_dictionary, interval_ofn)
     def PrintStats(self):
-        interval_stats = pd.DataFrame([
-                self.interval_counts.keys(),
-                self.interval_counts.values()]
-            ).T.rename(columns = {0 : 'interval', 1 : 'n_reads'})
+        interval_stats = pd.DataFrame.from_dict(self.intervalStats)
         interval_stats.to_csv(sys.stdout, sep="\t", index=False)
         interval_stats.to_csv(self.output_dir + 'intervalStats.tab', sep="\t", index=False)
     def Extract(self):
