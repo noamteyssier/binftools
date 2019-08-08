@@ -142,6 +142,7 @@ class RegionExtractor:
         Extract interval from bam file
         """
         interval_name, interval_ofn = self.getIntervalOFN(interval)
+        self._eprint('Processing : {}'.format(interval_name))
         tuples = self.GetIntervalInfo(interval)
         total_headers, passing_headers = self.SelectFullSpanning(tuples)
         self.UpdateStatistics(interval_name, total_headers, passing_headers)
