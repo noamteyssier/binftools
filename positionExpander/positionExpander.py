@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import sys, argparse
+import sys, argparse, gzip
 
 
 def get_args():
@@ -25,7 +25,7 @@ def get_args():
     return args
 def iter_positions(filename):
     """iterate through positions"""
-    f = open(filename, 'r')
+    f = open(filename, 'r') if '.gz' not in filename else gzip.open(filename, 'rt')
     while True:
         try:
             yield next(f)
