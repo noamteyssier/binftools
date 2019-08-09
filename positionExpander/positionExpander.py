@@ -28,7 +28,9 @@ def iter_positions(filename):
     f = open(filename, 'r') if '.gz' not in filename else gzip.open(filename, 'rt')
     while True:
         try:
-            yield next(f)
+            line = next(f)
+            if '#' not in line:
+                yield line
         except StopIteration:
             break
 def add_window(position, size):
