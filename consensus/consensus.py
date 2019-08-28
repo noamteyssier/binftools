@@ -1,99 +1,83 @@
-#!/usr/bin/python
-import sys, argparse
+#!/usr/bin/env python3
+
+import numpy as np
+import argparse, sys
+import pysam as ps
 
 
-class Region:
-    """class to handle regions and store bases"""
-    def __init__(self, entry):
-        if len(entry) == 5:
-            self.chrom, self.left, self.right, self.name, self.direction = entry
-        else:
-            try:
-                self.chrom, self.left, self.right, self.name = entry
-            except ValueError:
-                sys.exit("ERROR : bed format must have at least 4 values (chr, left, right, label) and up to 5")
-        self.entry = entry
-        self.bases = []
-    def assignPos(self, line, threshold):
-        """assign a base to class if it is within chromosomal region"""
-        ch,pos,ref,depth,pile,cig = line
-        if self.chrom == ch:
-            if (pos >= self.left) and (pos <= self.right):
-                self.bases.append(parse_pile(pile, depth, threshold))
-    def printConsensus(self, label):
-        """print formatted output"""
-        items = self.entry + [''.join(self.bases)]
-        #items = [self.chrom, self.left, self.right, self.name, self.direction, ''.join(self.bases)]
-        if label:
-            items.append(label)
-        print '\t'.join(items)
-
-def max_hist(string, lex=False):
-    """take histogram of each character in string and return highest"""
-    hist = dict()
-    for s in string:
-        if lex: # add lexicon to check against
-            if s not in lex:
-                continue
-        if s not in hist:
-            hist[s] = 0
-        hist[s] += 1
-    return max(hist, key = hist.get)
-def parse_stdin():
-    """generate stripped tab delim lines"""
-    for line in sys.stdin:
-        yield line.strip('\n').split('\t')
-def parse_pile(pile, depth, threshold):
-    """turn pile into uppercase and return maximum"""
-    pile = pile.upper()
-    lex = ['A', 'C', 'G', 'T']
-    if int(depth) >= int(threshold):
-        return max_hist(pile, lex)
-    else:
-        return 'x'
-def parse_bed(bed):
-    with open(bed) as f:
-        while True:
-            try:
-                entry = next(f).strip('\n').split('\t')
-                yield Region(entry)
-            except StopIteration:
-                break
-def makeBED(bed):
-    return [r for r in parse_bed(bed)]
-def writeout(ch, pos, pile, label=False):
-    """formatted output"""
-    items = [ch,pos,pile]
-    if label:
-        items.append(label)
-    print '\t'.join(items)
-def main():
+def parse_bed(bed_file):
+    f = open(bed_file, 'r')
+    while True:
+        try:
+            yield next(f).strip('\n').split('\t')
+        except StopIteration:
+            break
+def RegionConsensus(aln, chrom, start, end):
     """
-    Pull the consensus base from a pileup line by line
-    output tab delim w/o bedArrange:
-        chromosome position base
-    output tab delim w/ bedArrange:
-        chromosome leftBound rightBound regionName direction consensus
+    get sequence consensus across a given region
     """
+
+    region_consensus = []
+
+    for column in aln.pileup(chrom, int(start), int(end), truncate=True):
+
+        seq_column = np.array([b.upper() for b in column.get_query_sequences()])
+
+        bases, counts = np.unique(seq_column, return_counts=True)
+
+        consensus = bases[np.argmax(counts)]
+
+        region_consensus.append(consensus)
+
+    return ''.join(region_consensus)
+def WriteFasta(consensus, label, file_out):
+    """
+    write fasta given consensus sequence, label, and output file
+    """
+    file_out.write(
+        '>{}\n{}\n'.format(label, consensus)
+    )
+
+def main(args):
+
+    output_file = open(args.output_file, 'w+') if args.output_file else sys.stdout
+    bed_region = next(parse_bed(args.bed_file))
+    aln = ps.AlignmentFile(args.input_file)
+
+    for i, bed_region in enumerate(parse_bed(args.bed_file)):
+        chrom, start, end = bed_region[:3]
+        seq = RegionConsensus(aln, chrom, start, end)
+
+
+        try:
+            WriteFasta(seq, bed_region[3], output_file)
+        except IndexError:
+            WriteFasta(seq, i, output_file)
+
+
+def get_args():
     p = argparse.ArgumentParser()
-    p.add_argument('-l', '--label', help='add label column to output')
-    p.add_argument('-b', '--bedArrange', help='BED File to arrange bases')
-    p.add_argument('-t', '--threshold', default = 100, help='minumum depth to generate consensus')
+    p.add_argument("-i", '--input_file',
+        help='input bam to generate consensus sequence over regions'
+        )
+    p.add_argument("-b", '--bed_file',
+        help='bed file of regions'
+        )
+    p.add_argument('-r', '--region',
+         help='standalone region to generate consensus'
+         )
+    p.add_argument('-o', '--output_file',
+         help='where to write output fasta file (default = stdout)'
+         )
+    p.add_argument('-l', '--label_column',
+        help='which column of bed file to use as label (default = 4 // if none found will label numerically)'
+        )
     args = p.parse_args()
 
-    if sys.stdin.isatty(): # exit if no stdin
-        sys.exit("ERROR: pass pileup through stdin")
+    if (not args.bed_file) and (not args.region):
+        sys.exit('\nError : requires either bed file or region\n')
 
-    if not args.bedArrange:
-        for line in parse_stdin():
-            ch,pos,ref,depth,pile,cig = line
-            writeout(ch, pos, parse_pile(pile, depth, args.threshold), args.label)
-    else:
-        regions = makeBED(args.bedArrange)
-        for line in parse_stdin():
-            [r.assignPos(line, args.threshold) for r in regions]
-        [r.printConsensus(args.label) for r in regions]
-
-
+    return args
 if __name__ == '__main__':
-    main()
+    args = get_args()
+    main(args)
