@@ -17,9 +17,14 @@ def RegionConsensus(aln, chrom, start, end):
     get sequence consensus across a given region
     """
 
-    region_consensus = []
+    start = int(start)
+    end = int(end)
 
-    for column in aln.pileup(chrom, int(start), int(end), truncate=True):
+    region_consensus = []
+    last_base=start-1
+    for column in aln.pileup(chrom, start, end, truncate=True):
+        if column.pos != last_base+1:
+            [region_consensus.append('N') for _ in range(column.pos - start)]
 
         seq_column = np.array([b.upper() for b in column.get_query_sequences()])
 
@@ -28,6 +33,13 @@ def RegionConsensus(aln, chrom, start, end):
         consensus = bases[np.argmax(counts)]
 
         region_consensus.append(consensus)
+
+        last_base = column.pos
+
+    # case where full region is missing
+    if len(region_consensus) == 0:
+        size = end - start
+        region_consensus = ['N'] * size
 
     return ''.join(region_consensus)
 def WriteFasta(consensus, label, file_out):
