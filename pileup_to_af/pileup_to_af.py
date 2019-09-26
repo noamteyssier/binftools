@@ -108,7 +108,7 @@ class PileupToAlleleFrequency:
 
         self.FrequencyTable.sort_values('locus', inplace=True)
 
-        return self.FrequencyTable
+        return self.FrequencyTable.iloc[:,[4,5,0,1,2,3]]
 
 def get_args():
     p = argparse.ArgumentParser()
