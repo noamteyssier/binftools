@@ -6,7 +6,7 @@ import pysam as ps
 import argparse, sys, os, shutil, gzip
 
 class RegionExtractor:
-    def __init__(self, bam_fn, bed_fn, output_dir, overwrite=False):
+    def __init__(self, bam_fn, bed_fn, output_dir, overwrite=False, verbose=False):
         self.input_bam = bam_fn
         self.input_bed = bed_fn
 
@@ -14,6 +14,7 @@ class RegionExtractor:
         self.bed = None
         self.output_dir = output_dir
         self.overwrite = overwrite
+        self.verbose=verbose
 
         self.intervalStats = {
             'interval_name' : [],
@@ -185,7 +186,13 @@ def get_args():
     p.add_argument('--overwrite',
         help='overwrite output directory',
         required=False,
-        action='store_true')
+        action='store_true'
+        )
+    p.add_argument('--verbose',
+        help='print interval name currently processing',
+        required=False,
+        action='store_true'
+        )
     args = p.parse_args()
     return args
 def main(args):
