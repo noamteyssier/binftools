@@ -37,6 +37,7 @@ def main(args):
     for idx, record in enumerate(seqReader(args.input_sequences)):
         if record[1] == args.query_sequence:
             counter += 1
+    idx += 1
 
     print("number of occurences : {}".format(counter))
     print("total number of reads : {}".format(idx))
