@@ -26,15 +26,19 @@ def RegionConsensus(aln, chrom, start, end):
         if column.pos != last_base+1:
             [region_consensus.append('N') for _ in range(column.pos - start)]
 
-        seq_column = np.array([b.upper() for b in column.get_query_sequences()])
+        try:
+            seq_column = np.array([b.upper() for b in column.get_query_sequences()])
 
-        bases, counts = np.unique(seq_column, return_counts=True)
+            bases, counts = np.unique(seq_column, return_counts=True)
 
-        consensus = bases[np.argmax(counts)]
+            consensus = bases[np.argmax(counts)]
 
-        region_consensus.append(consensus)
+            region_consensus.append(consensus)
 
-        last_base = column.pos
+            last_base = column.pos
+
+        except AssertionError:
+            break
 
     # case where full region is missing
     if len(region_consensus) == 0:
